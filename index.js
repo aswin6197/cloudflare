@@ -1,6 +1,41 @@
-addEventListener('fetch', event => {
-  event.respondWith(handleRequest(event.request))
-})
+/*
+0 : title
+1 : h1#title
+2 : p#description
+3 : a#url
+*/
+class modifyPara{
+  constructor(type){
+    this.type = type
+  }
+  element(element){
+    const tagName = element.tagName
+    
+    if(tagName.localeCompare("a") == 0){
+      element.setAttribute("href","https://github.com/aswin6197/cloudflare")
+    }
+
+    // console.log('incoming element :'+ element.tagName)
+  }
+
+  text(element){
+    if(this.type < 2){
+      if(element.lastInTextNode){
+        element.after(" modified")
+      }
+    }
+    else{
+      if(!element.lastInTextNode)
+        element.remove()
+      else if(this.type == 2){
+        element.replace("paragraph is changed")
+      }
+      else if(this.type == 3)
+        element.replace("Go to github repo")
+    }
+    // console.log("contents "+element.text)
+  }
+}
 
 /**
  * extracts the url from the cookies
@@ -34,8 +69,15 @@ async function urlApi(){
   return url
 }
 
+addEventListener('fetch', event => {
+  event.respondWith(handleRequest(event.request))
+})  
+
+
+
+
 /**
- * Respond with hello worker text
+ * request handler contains main logic
  * @param {Request} request
  */
 async function handleRequest(request) {
@@ -59,10 +101,15 @@ async function handleRequest(request) {
     url = await urlApi();
     setCookie = true;
   }
+  
+  const htmlModifier = new HTMLRewriter().on("h1[id=title]",new modifyPara(1)).on("p[id=description]",new modifyPara(2))
+                        .on("a[id=url]",new modifyPara(3)).on("title",new modifyPara(0));
+
 
   const data = await fetch(url)
-                .then(data => data.text())
-
+              .then(data => htmlModifier.transform(data))
+              .then(html => html.text())
+        
   op = new Response(data,head)
   
   if(setCookie)
